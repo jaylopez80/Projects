@@ -1,7 +1,4 @@
 Jonathan Lopez
-2436878
-jonlopez@chapman.edu
-CPSC-350-01
 
 Compile command : g++ *.cpp -o views
 Run: ./views input.txt
