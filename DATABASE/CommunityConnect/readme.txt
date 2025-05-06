@@ -1,6 +1,6 @@
 1--Install dependencies on shell in VSCODE Once only
 
-pip install sqlalchemy pymysql pandas streamlit
+pip install sqlalchemy pymysql pandas streamlit cryptography
 
 2--Run the schema setup in VSCODE terminal
 python NMP_setup.py
