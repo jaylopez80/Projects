@@ -1,5 +1,5 @@
 #install dependencies in shelll
-#pip install sqlalchemy pymysql pandas streamlit
+#pip install sqlalchemy pymysql pandas streamlit cryptography
 
 
 from sqlalchemy import (
