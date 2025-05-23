@@ -25,7 +25,7 @@ import pandas as pd
 from NMP_setup import User, Category, Listing, Transaction, Review, Message
 
 # 1. Connect to DB
-DATABASE_URL = "mysql+pymysql://root:Student123!@localhost:3306/community_connect"
+DATABASE_URL = "mysql+pymysql://root:CPSC408!@localhost:3306/community_connect"
 engine = create_engine(DATABASE_URL, echo=False, future=True)
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -97,16 +97,47 @@ elif choice=="My Listings":
         st.warning("Log in first!")
     else:
         user_id = st.session_state.user_id
+
+        # --- Add New Listing Form ---
+        st.markdown("### Add New Listing")
+        with st.form("add_listing"):
+            title = st.text_input("Title")
+            desc = st.text_area("Description")
+            price = st.number_input("Price", min_value=0.0, step=1.0)
+            cat_names = [c.CategoryName for c in session.query(Category).all()]
+            cat_name = st.selectbox("Category", cat_names)
+            img_url = st.text_input("Image URL (optional)")
+            submitted = st.form_submit_button("Add Listing")
+            if submitted:
+                cat = session.query(Category).filter_by(CategoryName=cat_name).first()
+                new_listing = Listing(
+                    UserID=user_id,
+                    CategoryID=cat.CategoryID,
+                    Title=title,
+                    Description=desc,
+                    Price=price,
+                    ImageURL=img_url,
+                    Status="Active"
+                )
+                session.add(new_listing)
+                session.commit()
+                st.success("Listing added!")
+
+        # --- Show Existing Listings ---
         listings = session.query(Listing).filter_by(UserID=user_id).all()
+        if not listings:
+            st.info("You have no listings yet.")
         for l in listings:
             st.write(f"**{l.Title}** — {l.Status}")
+            if l.ImageURL:
+                st.image(l.ImageURL, width=200, caption=l.Title)
             cols = st.columns(3)
             if cols[0].button("Expire", key=f"e{l.ListingID}"):
                 l.Status = "Expired"
                 session.commit()
                 st.success("Listing expired")
             if cols[1].button("Edit", key=f"u{l.ListingID}"):
-                new_price = st.number_input("New price", value=float(l.Price))
+                new_price = st.number_input("New price", value=float(l.Price), key=f"np{l.ListingID}")
                 l.Price = new_price
                 session.commit()
                 st.success("Price updated")
@@ -182,7 +213,7 @@ elif choice=="Reports":
       "SELECT CategoryName, AVG(Price) AS AvgPrice "
       "FROM Listings l JOIN Categories c USING(CategoryID) "
       "GROUP BY CategoryName", engine)
-    st.write("Average Price per Category")
+    st.write("Average Price per Category") 
     st.dataframe(rpt1)
     st.download_button("Download CSV", rpt1.to_csv(index=False), "avg_price.csv")
 
