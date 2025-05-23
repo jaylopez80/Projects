@@ -2,7 +2,7 @@
 #pip install sqlalchemy pymysql pandas streamlit cryptography
 
 
-from sqlalchemy import (
+from sqlalchemy import ( 
     create_engine, Column, Integer, String, Text, DECIMAL,
     DateTime, Enum, ForeignKey, Boolean, Index, func, text
 )
@@ -10,7 +10,7 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import datetime
 
 # 1. Change this to your MySQL credentials
-DATABASE_URL = "mysql+pymysql://root:Student123!@localhost:3306/community_connect"
+DATABASE_URL = "mysql+pymysql://root:CPSC408!@localhost:3306/community_connect"
 
 # Create engine & metadata
 # echo=True will show all SQL statements for debugging
