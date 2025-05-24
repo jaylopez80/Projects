@@ -149,25 +149,33 @@ elif choice=="My Listings":
 # 6. Checkout (Transaction example with rollback)
 elif choice=="Checkout":
     st.subheader("Buy an Item")
-    # list active listings
-    df = to_df("SELECT ListingID, Title, Price FROM active_listings")
-    st.dataframe(df)
-    lid = st.number_input("Enter ListingID to buy", min_value=1)
-    if st.button("Buy"):
-        try:
-            session.begin()  # start transaction
-            listing = session.get(Listing, lid)
-            txn = Transaction(ListingID=lid,
-                              BuyerID=st.session_state.user_id,
-                              TotalAmount=listing.Price,
-                              PaymentStatus="Completed")
-            listing.Status="Sold"
-            session.add(txn)
-            session.commit()
-            st.success("Purchase complete!")
-        except Exception as e:
-            session.rollback()
-            st.error(f"Transaction failed: {e}")
+    if "user_id" not in st.session_state:
+        st.warning("Log in first!")
+    else:
+        # list active listings
+        df = to_df("SELECT ListingID, Title, Price FROM active_listings")
+        st.dataframe(df)
+        lid = st.number_input("Enter ListingID to buy", min_value=1)
+        if st.button("Buy"):
+            try:
+                # Check if already sold
+                existing_txn = session.query(Transaction).filter_by(ListingID=lid).first()
+                if existing_txn:
+                    st.error("This item has already been purchased.")
+                else:
+                    session.begin()  # start transaction
+                    listing = session.get(Listing, lid)
+                    txn = Transaction(ListingID=lid,
+                                      BuyerID=st.session_state.user_id,
+                                      TotalAmount=listing.Price,
+                                      PaymentStatus="Completed")
+                    listing.Status = "Sold"
+                    session.add(txn)
+                    session.commit()
+                    st.success("Purchase complete!")
+            except Exception as e:
+                session.rollback()
+                st.error(f"Transaction failed: {e}")
 
 # 7. Messages
 elif choice=="Messages":
@@ -181,29 +189,58 @@ elif choice=="Messages":
         st.dataframe(df_in)
         st.subheader("Send a Message")
         to_user = st.number_input("To (UserID)", min_value=1)
+        about_listing = st.text_input("About ListingID (optional)")
         subj = st.text_input("Subject")
         body = st.text_area("Content")
         if st.button("Send"):
+            # Add the listing info to the subject if provided
+            full_subject = f"[ListingID: {about_listing}] {subj}" if about_listing else subj
             msg = Message(SenderID=st.session_state.user_id,
                           ReceiverID=to_user,
-                          Subject=subj, Content=body)
-            session.add(msg); session.commit()
+                          Subject=full_subject,
+                          Content=body)
+            session.add(msg)
+            session.commit()
             st.success("Sent!")
 
 # 8. Reviews
 elif choice=="Reviews":
     st.subheader("Leave a Review")
-    txns = session.query(Transaction).filter_by(BuyerID=st.session_state.get("user_id",0)).all()
-    for t in txns:
-        if not t.review:
-            stars = st.slider(f"Rating for txn {t.TransactionID}", 1,5)
-            txt   = st.text_input(f"Comment for txn {t.TransactionID}")
-            if st.button(f"Review {t.TransactionID}"):
-                r = Review(TransactionID=t.TransactionID,
+    if "user_id" not in st.session_state:
+        st.warning("Log in first!")
+    else:
+        # --- Review a Transaction (existing code) ---
+        txns = session.query(Transaction).filter_by(BuyerID=st.session_state.user_id).all()
+        for t in txns:
+            if not t.review:
+                stars = st.slider(f"Rating for txn {t.TransactionID}", 1,5)
+                txt   = st.text_input(f"Comment for txn {t.TransactionID}")
+                if st.button(f"Review {t.TransactionID}"):
+                    r = Review(TransactionID=t.TransactionID,
+                               ReviewerID=st.session_state.user_id,
+                               Rating=stars, Comment=txt)
+                    session.add(r); session.commit()
+                    st.success("Thanks for your review!")
+
+        # --- Review a User (new feature) ---
+        st.markdown("### Leave a Review About a User")
+        users = session.query(User).filter(User.UserID != st.session_state.user_id).all()
+        user_options = {f"{u.Name} (UserID: {u.UserID})": u.UserID for u in users}
+        if user_options:
+            selected_user = st.selectbox("Select a user to review", list(user_options.keys()))
+            user_id_to_review = user_options[selected_user]
+            stars_user = st.slider("Rating for user", 1, 5, key="user_review_stars")
+            txt_user = st.text_area("Comment about this user", key="user_review_comment")
+            if st.button("Submit User Review"):
+                r = Review(TransactionID=None,
                            ReviewerID=st.session_state.user_id,
-                           Rating=stars, Comment=txt)
-                session.add(r); session.commit()
-                st.success("Thanks for your review!")
+                           RevieweeID=user_id_to_review if hasattr(Review, "RevieweeID") else None,
+                           Rating=stars_user, Comment=txt_user)
+                session.add(r)
+                session.commit()
+                st.success("Thanks for reviewing this user!")
+        else:
+            st.info("No other users to review.")
 
 # 9. Reports
 elif choice=="Reports":
